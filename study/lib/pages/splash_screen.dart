@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:study/pages/main_navigation_page.dart';
 import 'package:study/utils/user_manager.dart';
 import 'package:study/pages/login_page.dart';
-import 'package:study/pages/home_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -66,7 +65,6 @@ class _SplashScreenState extends State<SplashScreen> {
       );
       
     } catch (e) {
-      print('Error navigating to home page: $e');
       await _navigateToLoginPage();
     }
   }

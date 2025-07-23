@@ -26,17 +26,26 @@ class CarouselBanner extends StatefulWidget {
   });
 
   @override
-  State<CarouselBanner> createState() => _CarouselBannerState();
+  State<CarouselBanner> createState() => CarouselBannerState();
 }
 
-class _CarouselBannerState extends State<CarouselBanner> {
+class CarouselBannerState extends State<CarouselBanner> {
   int _currentIndex = 0;
   late CarouselSliderController _carouselController;
+  bool _isVisible = true;
 
   @override
   void initState() {
     super.initState();
     _carouselController = CarouselSliderController();
+  }
+
+  void setVisibility(bool isVisible) {
+    if (_isVisible != isVisible) {
+      setState(() {
+        _isVisible = isVisible;
+      });
+    }
   }
 
   @override
@@ -50,13 +59,15 @@ class _CarouselBannerState extends State<CarouselBanner> {
       );
     }
 
-    return Column(
-      children: [
-        CarouselSlider(
+    return SizedBox(
+      height: widget.height,
+      child: Stack(
+        children: [
+          CarouselSlider(
             carouselController: _carouselController,
             options: CarouselOptions(
               height: widget.height,
-              autoPlay: widget.autoPlay,
+              autoPlay: widget.autoPlay && _isVisible,
               autoPlayInterval: widget.autoPlayInterval,
               enlargeCenterPage: widget.enlargeCenterPage,
               viewportFraction: widget.viewportFraction,
@@ -71,20 +82,24 @@ class _CarouselBannerState extends State<CarouselBanner> {
             ),
             items: widget.images.map(_buildCarouselItem).toList(),
           ),
-        if (widget.showIndicators) _buildIndicators(),
-      ],
+          if (widget.showIndicators)
+            Positioned(
+              bottom: 12,
+              left: 0,
+              right: 0,
+              child: _buildIndicators(),
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildIndicators() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(
-          widget.images.length,
-          (index) => _buildIndicatorDot(index),
-        ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        widget.images.length,
+        (index) => _buildIndicatorDot(index),
       ),
     );
   }
@@ -98,7 +113,8 @@ class _CarouselBannerState extends State<CarouselBanner> {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: _currentIndex == index ? Colors.blue : Colors.grey.shade400,
+          color: _currentIndex == index ? Colors.white : Colors.white.withOpacity(0.4),
+          border: _currentIndex == index ? Border.all(color: Colors.blue, width: 1) : null,
         ),
       ),
     );
