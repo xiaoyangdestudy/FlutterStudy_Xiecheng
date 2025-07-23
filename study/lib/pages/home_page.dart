@@ -10,6 +10,9 @@ import 'package:study/widgets/promotional_services.dart';
 import 'package:study/widgets/search_bar_widget.dart';
 import 'package:study/utils/view_tuil.dart';
 
+/// 首页组件 - 携程App主界面
+/// 功能包括：轮播图、服务导航、促销活动、内容推荐列表
+/// 支持下拉刷新、上滑加载更多、AppBar透明度渐变等交互效果
 class HomePage extends StatefulWidget {
   final String userName;
   final String userAccount;
@@ -25,12 +28,14 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // ========== 控制器和状态变量 ==========
   late ScrollController _scrollController;
-  double _appBarOpacity = 0.0;
+  double _appBarOpacity = 0.0; // AppBar透明度，随滚动变化
   List<ContentItem> _contentItems = [];
-  bool _isLoading = false;
-  bool _hasMoreData = true;
+  bool _isLoading = false; // 是否正在加载更多数据
+  bool _hasMoreData = true; // 是否还有更多数据可加载
 
+  // ========== 生命周期方法 ==========
   @override
   void initState() {
     super.initState();
@@ -46,8 +51,9 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  // ========== 数据初始化和管理 ==========
+  /// 初始化页面数据
   void _initializeData() {
-    // 初始化20条数据
     _contentItems = List.generate(20, (index) => ContentItem(
       id: index + 1,
       title: '内容标题 ${index + 1}',
@@ -55,6 +61,8 @@ class _HomePageState extends State<HomePage> {
     ));
   }
 
+  // ========== 静态数据构建方法 ==========
+  /// 构建促销服务数据
   List<PromotionalService> _buildPromotionalServices() {
     return [
       PromotionalService(
@@ -114,6 +122,7 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  /// 构建附加服务数据
   List<AdditionalServiceItem> _buildAdditionalServices() {
     return [
       AdditionalServiceItem(
@@ -169,6 +178,7 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  /// 构建服务分类行数据
   List<ServiceRow> _buildServiceRows() {
     return [
       ServiceRow(
@@ -261,6 +271,7 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  /// 构建导航项数据
   List<NavigationItem> _buildNavigationItems() {
     return [
       NavigationItem(
@@ -296,6 +307,7 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  /// 构建轮播图数据
   List<String> _buildBannerImages() {
     return [
       'images/bg.png',
@@ -306,10 +318,13 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  // ========== 滚动和交互逻辑 ==========
+  /// 滚动监听器 - 处理AppBar透明度变化和加载更多逻辑
   void _onScroll() {
     final offset = _scrollController.offset;
     final maxOffset = 150.0;
     
+    // 更新AppBar透明度
     setState(() {
       _appBarOpacity = (offset / maxOffset).clamp(0.0, 1.0);
     });
@@ -320,9 +335,9 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// 下拉刷新
+  /// 下拉刷新 - 重新加载首页数据
   Future<void> _onRefresh() async {
-    // 模拟网络请求
+    // 模拟网络请求延迟
     await Future.delayed(const Duration(seconds: 2));
     
     // 生成新的数据
@@ -338,7 +353,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  /// 加载更多数据
+  /// 加载更多数据 - 上滑时自动触发
   Future<void> _loadMoreData() async {
     if (_isLoading || !_hasMoreData) return;
     
@@ -347,7 +362,7 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      // 模拟网络请求
+      // 模拟网络请求延迟
       await Future.delayed(const Duration(seconds: 1));
       
       // 生成更多数据
@@ -373,6 +388,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ========== 事件回调方法 ==========
   /// 城市选择回调
   void _onCityChanged(City city) {
     print('选择了城市: ${city.name}');
@@ -392,6 +408,7 @@ class _HomePageState extends State<HomePage> {
   }
 
 
+  // ========== UI构建方法 ==========
   /// 构建主界面
   /// 包含透明AppBar和可滚动的主体内容
   @override
@@ -462,6 +479,7 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  // ========== Sliver组件构建方法 ==========
   /// 构建首页头部区域
   /// 包含轮播图、导航栏、服务网格和附加服务
   Widget _buildHomeHeaderSliver() {
