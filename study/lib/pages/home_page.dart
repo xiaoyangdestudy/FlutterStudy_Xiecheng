@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:study/widgets/carousel_banner.dart';
-import 'package:study/widgets/refreshable_list_view.dart';
 
 // 内容数据模型
 class ContentItem {
@@ -33,6 +32,8 @@ class _HomePageState extends State<HomePage> {
   late ScrollController _scrollController;
   double _appBarOpacity = 0.0;
   List<ContentItem> _contentItems = [];
+  bool _isLoading = false;
+  bool _hasMoreData = true;
 
   @override
   void initState() {
@@ -65,10 +66,15 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _appBarOpacity = (offset / maxOffset).clamp(0.0, 1.0);
     });
+
+    // 检查是否需要加载更多数据
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMoreData();
+    }
   }
 
   /// 下拉刷新
-  Future<List<ContentItem>> _onRefresh() async {
+  Future<void> _onRefresh() async {
     // 模拟网络请求
     await Future.delayed(const Duration(seconds: 2));
     
@@ -81,29 +87,43 @@ class _HomePageState extends State<HomePage> {
     
     setState(() {
       _contentItems = newData;
+      _hasMoreData = true; // 重置加载更多状态
     });
-    
-    return newData;
   }
 
-  /// 上拉加载更多
-  Future<List<ContentItem>> _onLoadMore(int page) async {
-    // 模拟网络请求
-    await Future.delayed(const Duration(seconds: 1));
-    
-    // 生成更多数据
-    final startIndex = _contentItems.length;
-    final newData = List.generate(10, (index) => ContentItem(
-      id: startIndex + index + 1,
-      title: '加载更多 ${startIndex + index + 1}',
-      description: '这是加载更多的数据内容...',
-    ));
+  /// 加载更多数据
+  Future<void> _loadMoreData() async {
+    if (_isLoading || !_hasMoreData) return;
     
     setState(() {
-      _contentItems.addAll(newData);
+      _isLoading = true;
     });
-    
-    return newData;
+
+    try {
+      // 模拟网络请求
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // 生成更多数据
+      final startIndex = _contentItems.length;
+      final newData = List.generate(10, (index) => ContentItem(
+        id: startIndex + index + 1,
+        title: '加载更多 ${startIndex + index + 1}',
+        description: '这是加载更多的数据内容...',
+      ));
+      
+      setState(() {
+        _contentItems.addAll(newData);
+        _isLoading = false;
+        // 模拟没有更多数据的情况
+        if (_contentItems.length >= 60) {
+          _hasMoreData = false;
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -121,40 +141,62 @@ class _HomePageState extends State<HomePage> {
           foregroundColor: const Color.fromARGB(255, 0, 0, 0),        
         ),
       ),
-      body: RefreshableListView<ContentItem>(
-        items: _contentItems,
-        scrollController: _scrollController,
+      body: RefreshIndicator(
         onRefresh: _onRefresh,
-        onLoadMore: _onLoadMore,
-        header: _buildHeader(),
-        itemBuilder: (context, item, index) {
-          if (index == 0) {
-            // 第一个项目前显示推荐内容标题
-            return Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '推荐内容',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverToBoxAdapter(
+              child: _buildHeader(),
+            ),
+            SliverToBoxAdapter(
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '推荐内容',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildContentCard(item),
-                ),
-              ],
-            );
-          } else {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildContentCard(item),
-            );
-          }
-        },
+              ),
+            ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index < _contentItems.length) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildContentCard(_contentItems[index]),
+                    );
+                  } else if (_isLoading) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  } else if (!_hasMoreData) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: Text(
+                          '没有更多数据了',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+                childCount: _contentItems.length + 1,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
