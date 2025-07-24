@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:study/config/api_config.dart';
 
 class LoginDao {
-  static const String baseUrl = 'http://10.0.2.2:3001/api';
+  static String get baseUrl => ApiConfig.baseUrl;
   static Future<Map<String, dynamic>> login(String account, String password) async {
     try {
-      final url = Uri.parse('$baseUrl/login');
+      final url = Uri.parse('$baseUrl/auth/login');
       final requestData = {
-        'account': account,
+        'username': account,
         'password': password,
       };
       
@@ -31,8 +32,8 @@ class LoginDao {
         return {
           'success': true,
           'message': responseData['message'],
-          'token': responseData['token'],
-          'user': responseData['user'],
+          'token': responseData['data']['token'],
+          'user': responseData['data']['user'],
         };
       } else {
         return {
@@ -53,11 +54,12 @@ class LoginDao {
   
   static Future<Map<String, dynamic>> register(String account, String password, String name) async {
     try {
-      final url = Uri.parse('$baseUrl/register');
+      final url = Uri.parse('$baseUrl/auth/register');
       final requestData = {
-        'account': account,
+        'username': account,
         'password': password,
-        'name': name,
+        'nickname': name,
+        'email': '$account@example.com',
       };
       
       print('Sending register request to: $url');
@@ -70,11 +72,11 @@ class LoginDao {
       
       final responseData = json.decode(response.body);
       
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return {
           'success': true,
           'message': responseData['message'],
-          'user': responseData['user'],
+          'user': responseData['data']['user'],
         };
       } else {
         return {

@@ -9,6 +9,8 @@ import 'package:study/widgets/additional_services.dart';
 import 'package:study/widgets/promotional_services.dart';
 import 'package:study/widgets/search_bar_widget.dart';
 import 'package:study/utils/view_tuil.dart';
+import 'package:study/dao/api_service.dart';
+import 'package:study/pages/search_results_page.dart';
 
 /// 首页组件 - 携程App主界面
 /// 功能包括：轮播图、服务导航、促销活动、内容推荐列表
@@ -34,6 +36,15 @@ class _HomePageState extends State<HomePage> {
   List<ContentItem> _contentItems = [];
   bool _isLoading = false; // 是否正在加载更多数据
   bool _hasMoreData = true; // 是否还有更多数据可加载
+  City _selectedCity = const City(id: '1', name: '北京', code: 'BJ'); // 当前选中的城市
+  
+  // API数据
+  List<dynamic> _banners = [];
+  List<dynamic> _services = [];
+  List<dynamic> _promotions = [];
+  List<dynamic> _cities = [];
+  int _currentPage = 1;
+  bool _isLoadingData = false;
 
   // ========== 生命周期方法 ==========
   @override
@@ -53,7 +64,125 @@ class _HomePageState extends State<HomePage> {
 
   // ========== 数据初始化和管理 ==========
   /// 初始化页面数据
-  void _initializeData() {
+  void _initializeData() async {
+    setState(() {
+      _isLoadingData = true;
+    });
+    
+    try {
+      // 并行加载多个接口数据
+      await Future.wait([
+        _loadBanners(),
+        _loadServices(), 
+        _loadPromotions(),
+        _loadCities(),
+        _loadContent(),
+      ]);
+    } catch (e) {
+      print('Error loading initial data: $e');
+      // 如果API加载失败，使用默认数据
+      _loadDefaultData();
+    } finally {
+      setState(() {
+        _isLoadingData = false;
+      });
+    }
+  }
+  
+  /// 加载轮播图数据
+  Future<void> _loadBanners() async {
+    try {
+      final banners = await ApiService.getBanners();
+      setState(() {
+        _banners = banners;
+      });
+    } catch (e) {
+      print('Error loading banners: $e');
+    }
+  }
+  
+  /// 加载服务分类数据
+  Future<void> _loadServices() async {
+    try {
+      final services = await ApiService.getServices();
+      setState(() {
+        _services = services;
+      });
+    } catch (e) {
+      print('Error loading services: $e');
+    }
+  }
+  
+  /// 加载促销活动数据
+  Future<void> _loadPromotions() async {
+    try {
+      final promotions = await ApiService.getPromotions(limit: 6);
+      setState(() {
+        _promotions = promotions;
+      });
+    } catch (e) {
+      print('Error loading promotions: $e');
+    }
+  }
+  
+  /// 加载城市数据
+  Future<void> _loadCities() async {
+    try {
+      final cities = await ApiService.getPopularCities();
+      setState(() {
+        _cities = cities;
+      });
+    } catch (e) {
+      print('Error loading cities: $e');
+    }
+  }
+  
+  /// 加载推荐内容数据
+  Future<void> _loadContent({bool loadMore = false}) async {
+    if (_isLoading) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final result = await ApiService.getContent(
+        page: loadMore ? _currentPage + 1 : 1,
+        limit: 10,
+      );
+      
+      final newItems = (result['data'] as List).map((item) => ContentItem(
+        id: int.parse(item['id']),
+        title: item['title'],
+        description: item['description'] ?? item['subtitle'],
+      )).toList();
+      
+      setState(() {
+        if (loadMore) {
+          _contentItems.addAll(newItems);
+          _currentPage++;
+        } else {
+          _contentItems = newItems;
+          _currentPage = 1;
+        }
+        
+        final pagination = result['pagination'] as Map<String, dynamic>;
+        _hasMoreData = pagination['hasNext'] ?? false;
+      });
+    } catch (e) {
+      print('Error loading content: $e');
+      if (!loadMore) {
+        _loadDefaultData();
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  
+  /// 加载默认数据（API失败时的备用方案）
+  void _loadDefaultData() {
     _contentItems = List.generate(20, (index) => ContentItem(
       id: index + 1,
       title: '内容标题 ${index + 1}',
@@ -318,6 +447,112 @@ class _HomePageState extends State<HomePage> {
     ];
   }
 
+  /// 从服务器数据构建服务分类行
+  List<ServiceRow> _buildServiceRowsFromData(List<dynamic> servicesData) {
+    if (servicesData.isEmpty) return _buildServiceRows();
+    
+    List<ServiceRow> rows = [];
+    
+    // 遍历每个服务分类
+    for (int i = 0; i < servicesData.length; i++) {
+      final serviceGroup = servicesData[i];
+      List<ServiceCategory> services = [];
+      
+      // 添加主服务（第一个位置，带图标）
+      services.add(ServiceCategory(
+        title: serviceGroup['title'] ?? '服务',
+        icon: _getIconFromString(serviceGroup['icon']),
+        onTap: () => print('点击了${serviceGroup['title']}'),
+      ));
+      
+      // 添加子服务到后续位置
+      if (serviceGroup['services'] != null) {
+        final subServices = serviceGroup['services'] as List;
+        for (int j = 0; j < 4 && j < subServices.length; j++) {
+          services.add(ServiceCategory(
+            title: subServices[j]['name'] ?? '子服务',
+            onTap: () => print('点击了${subServices[j]['name']}'),
+          ));
+        }
+      }
+      
+      // 如果服务数量不足5个，用默认服务填充
+      while (services.length < 5) {
+        services.add(ServiceCategory(
+          title: '更多服务',
+          onTap: () => print('点击了更多服务'),
+        ));
+      }
+      
+      rows.add(ServiceRow(
+        gradientColors: _getGradientColors(i),
+        services: services,
+      ));
+    }
+    
+    return rows.isNotEmpty ? rows : _buildServiceRows();
+  }
+
+  /// 从服务器数据构建促销服务
+  List<PromotionalService> _buildPromotionalServicesFromData(List<dynamic> promotionsData) {
+    return promotionsData.map((promo) => PromotionalService(
+      title: promo['title'] ?? '促销服务',
+      subtitle: promo['subtitle'] ?? promo['description'] ?? '优惠活动',
+      buttonText: promo['buttonText'] ?? '立即查看',
+      backgroundColor: _getColorFromString(promo['backgroundColor']) ?? const Color(0xFFF0F8FF),
+      buttonColor: _getColorFromString(promo['buttonColor']) ?? const Color(0xFFFF6B6B),
+      icon: _getIconFromString(promo['icon']) ?? Icons.local_offer,
+      onTap: () => print('点击了${promo['title']}'),
+    )).toList();
+  }
+
+  /// 根据字符串获取图标
+  IconData? _getIconFromString(String? iconName) {
+    if (iconName == null) return Icons.star;
+    
+    // 如果是emoji，返回默认图标（因为Flutter Icon不直接支持emoji）
+    if (iconName.contains('🏨') || iconName.toLowerCase().contains('hotel')) return Icons.hotel;
+    if (iconName.contains('✈️') || iconName.toLowerCase().contains('flight')) return Icons.flight;
+    if (iconName.contains('🧳') || iconName.toLowerCase().contains('travel')) return Icons.luggage;
+    
+    // 传统的图标名称映射
+    switch (iconName.toLowerCase()) {
+      case 'hotel': return Icons.hotel;
+      case 'flight': return Icons.flight;
+      case 'landscape': return Icons.landscape;
+      case 'travel': case 'luggage': return Icons.luggage;
+      case 'local_hotel': return Icons.local_hotel;
+      case 'sports_basketball': return Icons.sports_basketball;
+      case 'card_giftcard': return Icons.card_giftcard;
+      case 'redeem': return Icons.redeem;
+      case 'shopping_cart': return Icons.shopping_cart;
+      default: return Icons.star;
+    }
+  }
+
+  /// 根据字符串获取颜色
+  Color? _getColorFromString(String? colorString) {
+    if (colorString == null) return null;
+    
+    try {
+      return Color(int.parse(colorString.replaceFirst('#', '0xFF')));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// 根据行索引获取渐变色
+  List<Color> _getGradientColors(int rowIndex) {
+    switch (rowIndex % 3) {
+      case 0:
+        return [const Color(0xFFFF6B6B), const Color(0xFFFF8E53)];
+      case 1:
+        return [const Color(0xFF4E9AF9), const Color(0xFF5BB7FF)];
+      default:
+        return [const Color(0xFF4CAF50), const Color(0xFF66BB6A)];
+    }
+  }
+
   // ========== 滚动和交互逻辑 ==========
   /// 滚动监听器 - 处理AppBar透明度变化和加载更多逻辑
   void _onScroll() {
@@ -357,40 +592,16 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadMoreData() async {
     if (_isLoading || !_hasMoreData) return;
     
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // 模拟网络请求延迟
-      await Future.delayed(const Duration(seconds: 1));
-      
-      // 生成更多数据
-      final startIndex = _contentItems.length;
-      final newData = List.generate(10, (index) => ContentItem(
-        id: startIndex + index + 1,
-        title: '加载更多 ${startIndex + index + 1}',
-        description: '这是加载更多的数据内容...',
-      ));
-      
-      setState(() {
-        _contentItems.addAll(newData);
-        _isLoading = false;
-        // 模拟没有更多数据的情况
-        if (_contentItems.length >= 60) {
-          _hasMoreData = false;
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    // 使用统一的内容加载方法
+    await _loadContent(loadMore: true);
   }
 
   // ========== 事件回调方法 ==========
   /// 城市选择回调
   void _onCityChanged(City city) {
+    setState(() {
+      _selectedCity = city;
+    });
     print('选择了城市: ${city.name}');
     // TODO: 实现城市切换逻辑
   }
@@ -404,7 +615,15 @@ class _HomePageState extends State<HomePage> {
   /// 搜索框点击回调
   void _onSearchTap() {
     print('点击了搜索框');
-    // TODO: 跳转到搜索页面或展开搜索功能
+    // 跳转到搜索结果页面
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SearchResultsPage(
+          selectedCity: _selectedCity,
+        ),
+      ),
+    );
   }
 
 
@@ -444,6 +663,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               buildSizedBox(height: 8),
               SearchBarWidget(
+                selectedCity: _selectedCity,
                 backgroundOpacity: _appBarOpacity,
                 onCityChanged: _onCityChanged,
                 onSearchChanged: _onSearchChanged,
@@ -485,9 +705,13 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHomeHeaderSliver() {
     return SliverToBoxAdapter(
       child: HomeHeader(
-        bannerImages: _buildBannerImages(),
+        bannerImages: _banners.isNotEmpty 
+          ? _banners.map((banner) => banner['imageUrl'] as String? ?? 'images/bg.png').toList()
+          : _buildBannerImages(),
         navigationItems: _buildNavigationItems(),
-        serviceRows: _buildServiceRows(),
+        serviceRows: _services.isNotEmpty 
+          ? _buildServiceRowsFromData(_services)
+          : _buildServiceRows(),
         additionalServices: _buildAdditionalServices(),
       ),
     );
@@ -498,7 +722,9 @@ class _HomePageState extends State<HomePage> {
   Widget _buildPromotionalServicesSliver() {
     return SliverToBoxAdapter(
       child: PromotionalServices(
-        services: _buildPromotionalServices(),
+        services: _promotions.isNotEmpty 
+          ? _buildPromotionalServicesFromData(_promotions)
+          : _buildPromotionalServices(),
       ),
     );
   }

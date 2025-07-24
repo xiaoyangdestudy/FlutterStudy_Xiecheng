@@ -166,7 +166,7 @@ class _LoginPageState extends State<LoginPage> {
           userInfo: result['user'],
         );
         
-        _showSuccessMessage('登录成功！欢迎 ${result['user']['name']}');
+        _showSuccessMessage('登录成功！欢迎 ${result['user']['nickname'] ?? result['user']['username']}');
         print('✅ 登录成功！');
         print('🎫 Token: ${result['token']}');
         print('👤 用户信息: ${result['user']}');
@@ -175,8 +175,8 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => MainNavigationPage(
-              userName: result['user']['name'],
-              userAccount: result['user']['account'],
+              userName: result['user']['nickname'] ?? result['user']['username'] ?? '用户',
+              userAccount: result['user']['username'] ?? '',
             ),
           ),
         );
